@@ -7,15 +7,17 @@ package datos;
 
 import database.Conexion;
 import datos.Interfeaces.CrudIngresoInterface;
-import entidades.Articulo;
 import entidades.DetalleIngreso;
 import entidades.Ingreso;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 
 /**
@@ -66,7 +68,7 @@ public class IngresoDAO implements CrudIngresoInterface<Ingreso, DetalleIngreso>
 
     @Override
     public List<DetalleIngreso> listarDetalle(int id) {
-        
+        throw new UnsupportedOperationException("-");
     }
 
     @Override
@@ -76,15 +78,68 @@ public class IngresoDAO implements CrudIngresoInterface<Ingreso, DetalleIngreso>
         try {
             conn=CON.conectar();
             conn.setAutoCommit(false);//Para iniciar una transaccion debemos de deshabilitar e autocomit para tener control de cuando y como se realiza
+            String sqlInsetIngreso="INSERT INTO ingreso (persona_id, usuario_id, fecha, tipo_comprobante, serie_comprobante, num_comprobante, impuesto, total, estado ) VALUES (?,?,now(),?,?,?,?,?)";
             //Enviaremos valores al Prepare Statement
-            ps = CON.conectar().prepareStatement("INSERT INTO articulo (categoria_id,codigo,nombre,precio_venta,stock,descripcion,imagen,activo) VALUES(?,?,?,?,?,?,?,1)");
-            ps.setInt(1, obj.getCategoriaID());
-            ps.setString(2, obj.getCodigo());
-            ps.setString(3, obj.getNombre());
-            ps.setDouble(4, obj.getPrecioVenta());
-            ps.setInt(5, obj.getStock());
-            ps.setString(6, obj.getDescripcion());
-            ps.setString(7, obj.getImagen());
+            ps = conn.prepareStatement(sqlInsetIngreso, Statement.RETURN_GENERATED_KEYS);//Me retornara el ID generado 
+            ps.setInt(1, obj.getPersonaId());
+            ps.setInt(2, obj.getUsuarioId());
+            ps.setString(3, obj.getTipoComprobante());
+            ps.setString(4, obj.getSerieComprobante());
+            ps.setString(5, obj.getNumComprobante());
+            ps.setDouble(6, obj.getImpuesto());
+            ps.setDouble(7, obj.getTotal());
+            ps.setString(9, "Aceptado");
+            
+            int filasAfectadas= ps.executeUpdate();
+            rs=ps.getGeneratedKeys();
+            int idGenerado=0;
+            if(rs.next()){
+                idGenerado=rs.getInt(1);
+            }
+            
+            if (filasAfectadas==1){
+                String sqlInsertDetalle="INSERT INTO detalle_ingreso (ingreso_id, articulo_id, cantidad, precio) VALUES (?,?,?,?)";
+                ps=conn.prepareStatement(sqlInsertDetalle);
+                for (DetalleIngreso item:obj.getDetalles()){//
+                    ps.setInt(1, idGenerado);
+                    ps.setInt(2, item.getArticuloId());
+                    ps.setInt(3, item.getCantidad());
+                    ps.setDouble(4, item.getPrecio());
+                    resp= ps.executeUpdate()>0;
+                    
+                }
+                conn.commit();
+            }else{
+                conn.rollback();
+            }
+ 
+        } catch (SQLException e) {
+            try {
+                if(conn!=null){
+                conn.rollback();
+                }
+                JOptionPane.showMessageDialog(null, e.getMessage());
+            } catch (SQLException ex) {
+                Logger.getLogger(IngresoDAO.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        } finally {
+            try {
+                if(rs != null)rs.close();
+                if(ps !=null)ps.close();
+                if(conn!=null)conn.close();
+            } catch (SQLException ex) {
+                Logger.getLogger(IngresoDAO.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        return resp;
+    }
+
+    @Override
+    public boolean anular(int id) {
+        resp = false;
+        try {
+            ps = CON.conectar().prepareStatement("UPDATE ingreso SET estado='Anulado' WHERE id=?");
+            ps.setInt(1, id);
             if (ps.executeUpdate() > 0) {
                 resp = true;
             }
@@ -99,19 +154,47 @@ public class IngresoDAO implements CrudIngresoInterface<Ingreso, DetalleIngreso>
     }
 
     @Override
-    public boolean anular(int id) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-    @Override
     public int total() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        int totalRegistros = 0;
+        try {
+            ps = CON.conectar().prepareStatement("SELECT COUNT(id) FROM ingreso");
+            rs = ps.executeQuery();
+            while (rs.next()) {
+                totalRegistros = rs.getInt("COUNT(id)");
+            }
+            ps.close();
+            rs.close();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(null, e.getMessage());
+        } finally {
+            ps = null;
+            rs = null;
+            CON.desconectar();
+        }
+        return totalRegistros;
     }
 
     @Override
-    public boolean existe(String texto) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    public boolean existe(String texto1, String texto2) {
+         resp = false;
+        try {
+            ps = CON.conectar().prepareStatement("SELECT id FROM ingreso WHERE serie_comprobante=? AND num_comprobante=?");
+            ps.setString(1, texto1);
+            ps.setString(2, texto2);
+            rs = ps.executeQuery();
+            rs.last();
+            if (rs.getRow() > 0) {
+                resp = true;
+            }
+            ps.close();
+            rs.close();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(null, e.getMessage());
+        } finally {
+            ps = null;
+            rs = null;
+            CON.desconectar();
+        }
+        return resp;
     }
-    
-    
 }

@@ -17,6 +17,6 @@ public interface CrudIngresoInterface<T,D> {
     public boolean insertar(T obj);
     public boolean anular (int id);
     public int total();
-    public boolean existe(String texto);
+    public boolean existe(String texto1,String texto2);
     
 }
