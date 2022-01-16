@@ -22,6 +22,13 @@ public class DetalleIngreso {
     public DetalleIngreso() {
     }
 
+    public DetalleIngreso(int articuloId, int cantidad, double precio) {
+        this.articuloId = articuloId;
+        this.cantidad = cantidad;
+        this.precio = precio;
+    }
+    
+
     public DetalleIngreso(int id, int ingresoId, int articuloId, String articuloCodigo, String articuloNombre, int cantidad, double precio, double subTotal) {
         this.id = id;
         this.ingresoId = ingresoId;
